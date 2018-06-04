@@ -1,0 +1,259 @@
+syntax = "proto3";
+
+package proto;
+
+// DynamicValue is an opaque encoding of terraform data, with the field name
+// indicating the encoding scheme used.
+message DynamicValue {
+    bytes msgpack = 1;
+    bytes json = 2;
+}
+
+message Diagnostic {
+    enum Level {
+        INVALID = 0;
+        ERROR = 1;
+        WARNING = 2;
+    }
+    Level level = 1;
+    string summary = 2;
+    string detail = 3;
+    AttributePath attribute = 4;
+}
+
+message AttributePath {
+    message Step {
+        oneof selector {
+            // Set "attribute_name" to represent looking up an attribute
+            // in the current object value.
+            string attribute_name = 1;
+            // Set "element_key" to represent looking up an element in
+            // an indexable collection type.
+            DynamicValue element_key = 2;
+        }
+    }
+    repeated Step steps = 1;
+}
+
+message Stop {
+    message Request {
+    }
+    message Response {
+		string Error = 1;
+    }
+}
+
+service Provider {
+    //////// Information about what a provider supports/expects
+    rpc GetSchema(GetSchema.Request) returns (GetSchema.Response);
+    rpc ValidateProviderConfig(ValidateProviderConfig.Request) returns (ValidateProviderConfig.Response);
+    rpc ValidateResourceTypeConfig(ValidateResourceTypeConfig.Request) returns (ValidateResourceTypeConfig.Response);
+    rpc ValidateDataSourceConfig(ValidateDataSourceConfig.Request) returns (ValidateDataSourceConfig.Response);
+    rpc UpgradeResourceState(UpgradeResourceState.Request) returns (UpgradeResourceState.Response);
+
+    //////// One-time initialization, called before other functions below
+    rpc Configure(Configure.Request) returns (Configure.Response);
+
+    //////// Managed Resource Lifecycle
+    rpc ReadResource(ReadResource.Request) returns (ReadResource.Response);
+    rpc PlanResourceChange(PlanResourceChange.Request) returns (PlanResourceChange.Response);
+    rpc ApplyResourceChange(ApplyResourceChange.Request) returns (ApplyResourceChange.Response);
+    rpc ImportResourceState(ImportResourceState.Request) returns (ImportResourceState.Response);
+
+    rpc ReadDataSource(ReadDataSource.Request) returns (ReadDataSource.Response);
+
+    //////// Graceful Shutdown
+    rpc Stop(Stop.Request) returns (Stop.Response);
+}
+
+message GetSchema {
+    message Request {
+    }
+    message Attribute {
+        string name = 1;
+        bytes type = 2;
+        string description = 3;
+        bool required = 4;
+        bool optional = 5;
+        bool computed = 6;
+        bool sensitive = 7;
+    }
+    message Block {
+        int64 version = 1;
+        repeated Attribute attributes = 2;
+        repeated NestedBlock block_types = 3;
+    }
+    enum NestingMode {
+        INVALID = 0;
+        SINGLE = 1;
+        LIST = 2;
+        SET = 3;
+        MAP = 4;
+    }
+    message NestedBlock {
+        string type_name = 1;
+        Block block = 2;
+        NestingMode nesting = 3;
+        int64 min_items = 4;
+        int64 max_items = 5;
+    }
+    message Response {
+        Block provider_schema = 1;
+        map<string, Block> resource_schemas = 2;
+        map<string, Block> data_source_schemas = 3;
+    }
+}
+
+message ValidateProviderConfig {
+    message Request {
+        DynamicValue config = 1;
+    }
+    message Response {
+        repeated Diagnostic diagnostics = 15;
+    }
+}
+
+message ValidateResourceTypeConfig {
+    message Request {
+        string resource_type_name = 1;
+        DynamicValue config = 2;
+    }
+    message Response {
+        repeated Diagnostic diagnostics = 15;
+    }
+}
+
+message ValidateDataSourceConfig {
+    message Request {
+        string data_source_name = 1;
+        DynamicValue config = 2;
+    }
+    message Response {
+        repeated Diagnostic diagnostics = 15;
+    }
+}
+
+message Configure {
+    message Request {
+        string terraform_version = 1;
+        DynamicValue config = 2;
+    }
+    message Response {
+        repeated Diagnostic diagnostics = 15;
+    }
+}
+
+message ReadResource {
+    message Request {
+        string resource_type_name = 1;
+        DynamicValue current_state = 2;
+    }
+    message Response {
+        DynamicValue new_state = 1;
+        repeated Diagnostic diagnostics = 15;
+    }
+}
+
+message PlanResourceChange {
+    message Request {
+        string resource_type_name = 1;
+        DynamicValue prior_state = 2;
+        DynamicValue proposed_new_state = 3;
+        DynamicValue extra = 4; 
+    }
+
+    message Response {
+        DynamicValue planned_new_state = 1;
+        repeated AttributePath requires_replace = 2;
+        DynamicValue extra = 3; 
+        repeated Diagnostic diagnostics = 4;
+    }
+}
+
+message ApplyResourceChange {
+    message Request {
+        string resource_type_name = 1;
+        DynamicValue prior_state = 2;
+        DynamicValue planned_new_state = 3;
+        bytes extra = 4; 
+    }
+    message Response {
+        bytes new_state = 1;
+        bytes extra = 2; 
+        map<string, string> connection = 3;
+        repeated Diagnostic diagnostics = 4;
+    }
+}
+
+message ImportResourceState {
+    message Request {
+        string resource_type_name = 1;
+        string id = 2;
+    }
+    message Response {
+        DynamicValue new_state = 2;
+        repeated Diagnostic diagnostics = 3;
+    }
+}
+
+message ReadDataSource {
+    message Request {
+        string data_source_name = 1;
+        DynamicValue request = 2;
+    }
+    message Response {
+        DynamicValue result = 1;
+        repeated Diagnostic diagnostics = 3;
+    }
+}
+
+message UpgradeResourceState {
+    message Request {
+        string resource_type_name = 1;
+
+        // prior_version is the schema_version number recorded in the state file
+        uint64 prior_version = 2;
+
+        // prior_state_raw is a msgpack-encoded version of the value data structure
+        // recorded in the state file without any prior validation or normalization.
+        // Core does not have access to the schema of prior_version, so it's the
+        // provider's responsibility to interpret this value using the appropriate
+        // older schema.
+        DynamicValue prior_state_raw = 3;
+    }
+    message Response {
+        // new_state is a msgpack-encoded data structure that, when interpreted with
+        // the _current_ schema for this resource type, is functionally equivalent to
+        // that which was given in prior_state_raw.
+        DynamicValue new_state = 1;
+
+        // diagnostics describes any errors encountered during migration that could not
+        // be safely resolved, and warnings about any possibly-risky assumptions made
+        // in the upgrade process.
+        repeated Diagnostic diagnostics = 2;
+    }
+}
+
+service Provisioner {
+    rpc ValidateProvisionerConfig(ValidateProvisionerConfig.Request) returns (ValidateProvisionerConfig.Response);
+    rpc Apply(ProvisionerApply.Request) returns (stream ProvisionerApply.Response);
+    rpc Stop(Stop.Request) returns (Stop.Response);
+}
+
+message ValidateProvisionerConfig {
+    message Request {
+        DynamicValue config = 1;
+    }
+    message Response {
+        repeated Diagnostic diagnostics = 15;
+    }
+}
+
+message ProvisionerApply {
+    message Request {
+        DynamicValue config = 1;
+    }
+    message Response {
+        string output  = 1;
+    }   
+}
