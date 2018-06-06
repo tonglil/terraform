@@ -178,7 +178,7 @@ message ApplyResourceChange {
         bytes extra = 4; 
     }
     message Response {
-        bytes new_state = 1;
+        DynamicValue new_state = 1;
         bytes extra = 2; 
         map<string, string> connection = 3;
         repeated Diagnostic diagnostics = 4;
