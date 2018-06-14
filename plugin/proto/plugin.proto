@@ -159,13 +159,13 @@ message PlanResourceChange {
         string resource_type_name = 1;
         DynamicValue prior_state = 2;
         DynamicValue proposed_new_state = 3;
-        DynamicValue extra = 4; 
+        bytes private = 4; 
     }
 
     message Response {
         DynamicValue planned_new_state = 1;
         repeated AttributePath requires_replace = 2;
-        DynamicValue extra = 3; 
+        bytes private = 3; 
         repeated Diagnostic diagnostics = 4;
     }
 }
@@ -175,12 +175,12 @@ message ApplyResourceChange {
         string resource_type_name = 1;
         DynamicValue prior_state = 2;
         DynamicValue planned_new_state = 3;
-        bytes extra = 4; 
+        bytes private = 4; 
     }
     message Response {
         DynamicValue new_state = 1;
-        bytes extra = 2; 
         map<string, string> connection = 3;
+        bytes private = 2; 
         repeated Diagnostic diagnostics = 4;
     }
 }
