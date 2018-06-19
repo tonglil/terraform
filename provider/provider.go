@@ -1,7 +1,6 @@
-package types
+package provider
 
 import (
-	"github.com/hashicorp/terraform/addrs"
 	"github.com/hashicorp/terraform/config/configschema"
 	"github.com/hashicorp/terraform/tfdiags"
 	"github.com/zclconf/go-cty/cty"
@@ -9,7 +8,7 @@ import (
 
 // Provider represents the set of methods required for a complete resource
 // provider plugin.
-type Provider interface {
+type Interface interface {
 	// GetSchema returns the complete schema for the provider.
 	GetSchema() GetSchemaResponse
 
@@ -188,9 +187,9 @@ type PlanResourceChangeResponse struct {
 	// configuration is applied.
 	PlannedState cty.Value
 
-	// RequiresReplace is a list of resources that will be replaces by this
-	// change.
-	RequiresReplace []addrs.Resource
+	// RequiresReplace is the list of thee attributes that are requiring
+	// resource replacement.
+	RequiresReplace []cty.Path
 
 	// PlannedPrivate is an opaque blob that is not interpreted by terraform
 	// core. This will be saved and relayed back to the provider during
