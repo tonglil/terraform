@@ -2,8 +2,10 @@ package states
 
 import (
 	"github.com/zclconf/go-cty/cty"
+	ctyjson "github.com/zclconf/go-cty/cty/json"
 
 	"github.com/hashicorp/terraform/addrs"
+	"github.com/hashicorp/terraform/config/hcl2shim"
 )
 
 // ResourceInstanceObject is the local representation of a specific remote
@@ -85,3 +87,40 @@ const (
 	// ObjectRead state, a tainted object must be replaced.
 	ObjectTainted ObjectStatus = 'T'
 )
+
+// Value decodes the attributes of the receiver into an object value of the
+// given type.
+//
+// If the stored attributes are not conformant to the given type, the stored
+// value may be misinterpreted or an error may be returned. To avoid problems,
+// this method should be used only after an object has been upgraded to the
+// current schema version and with the implied type of that schema.
+func (o *ResourceInstanceObject) Value(ty cty.Type) (cty.Value, error) {
+	if o.AttrsFlat != nil {
+		// Legacy mode. We'll do our best to unpick this from the flatmap,
+		// but in practice a stored object should always be upgraded to
+		// use the JSON format and the latest schema before calling this
+		// method.
+		return hcl2shim.HCL2ValueFromFlatmap(o.AttrsFlat, ty)
+	}
+
+	return ctyjson.Unmarshal(o.AttrsJSON, ty)
+}
+
+// SetValue encodes the given value (which must be of an object type) and
+// saves it as the attributes of the receiver.
+//
+// The given type must be the implied type of the resource type schema, and
+// the given value must conform to it. It is important to pass the schema
+// type and not the object's own type so that dynamically-typed attributes
+// will be stored correctly.
+func (o *ResourceInstanceObject) SetValue(val cty.Value, ty cty.Type) error {
+	src, err := ctyjson.Marshal(val, ty)
+	if err != nil {
+		return err
+	}
+
+	o.AttrsFlat = nil
+	o.AttrsJSON = src
+	return nil
+}

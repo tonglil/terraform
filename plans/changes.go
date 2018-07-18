@@ -15,6 +15,13 @@ type Changes struct {
 	RootOutputs map[string]*OutputChange
 }
 
+// NewChanges returns a valid Changes object that describes no changes.
+func NewChanges() *Changes {
+	return &Changes{
+		RootOutputs: make(map[string]*OutputChange),
+	}
+}
+
 // ResourceInstanceChange describes a change to a particular resource instance
 // object.
 type ResourceInstanceChange struct {
