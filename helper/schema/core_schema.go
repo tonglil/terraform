@@ -53,6 +53,25 @@ func (m schemaMap) CoreConfigSchema() *configschema.Block {
 	return ret
 }
 
+// CoreConfigResourceSchema is the same as CoreConfigSchema, except it adds the
+// implicit "id" field for top-level resources.
+func (m schemaMap) CoreConfigResourceSchema() *configschema.Block {
+	block := m.CoreConfigSchema()
+
+	if block.Attributes == nil {
+		block.Attributes = map[string]*configschema.Attribute{}
+	}
+
+	if block.Attributes["id"] == nil {
+		block.Attributes["id"] = &configschema.Attribute{
+			Type:     cty.String,
+			Optional: true,
+			Computed: true,
+		}
+	}
+	return block
+}
+
 // coreConfigSchemaAttribute prepares a configschema.Attribute representation
 // of a schema. This is appropriate only for primitives or collections whose
 // Elem is an instance of Schema. Use coreConfigSchemaBlock for collections
@@ -153,30 +172,16 @@ func (s *Schema) coreConfigSchemaType() cty.Type {
 	}
 }
 
-// CoreConfigSchema is a convenient shortcut for calling CoreConfigSchema on
-// the resource's schema. CoreConfigSchema adds the implicitly required "id"
-// attribute for top level resources if it doesn't exist.
+// CoreConfigSchema is a convenient shortcut for calling CoreConfigSchema
+// on the resource's schema.
 func (r *Resource) CoreConfigSchema() *configschema.Block {
-	block := r.coreConfigSchema()
-
-	if block.Attributes == nil {
-		block.Attributes = map[string]*configschema.Attribute{}
-	}
-
-	// Add the implicitly required "id" field if it doesn't exist
-	if block.Attributes["id"] == nil {
-		block.Attributes["id"] = &configschema.Attribute{
-			Type:     cty.String,
-			Optional: true,
-			Computed: true,
-		}
-	}
-
-	return block
+	return schemaMap(r.Schema).CoreConfigSchema()
 }
 
-func (r *Resource) coreConfigSchema() *configschema.Block {
-	return schemaMap(r.Schema).CoreConfigSchema()
+// CoreConfigResourceSchema is a shortcut for calling CoreConfigResourceSchema
+// on the resource's schema.
+func (r *Resource) CoreConfigResourceSchema() *configschema.Block {
+	return schemaMap(r.Schema).CoreConfigResourceSchema()
 }
 
 // CoreConfigSchema is a convenient shortcut for calling CoreConfigSchema

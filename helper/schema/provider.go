@@ -193,12 +193,12 @@ func (p *Provider) GetSchema(req *terraform.ProviderSchemaRequest) (*terraform.P
 
 	for _, name := range req.ResourceTypes {
 		if r, exists := p.ResourcesMap[name]; exists {
-			resourceTypes[name] = r.CoreConfigSchema()
+			resourceTypes[name] = r.CoreConfigResourceSchema()
 		}
 	}
 	for _, name := range req.DataSources {
 		if r, exists := p.DataSourcesMap[name]; exists {
-			dataSources[name] = r.CoreConfigSchema()
+			dataSources[name] = r.CoreConfigResourceSchema()
 		}
 	}
 
